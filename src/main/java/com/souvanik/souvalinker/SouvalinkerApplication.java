@@ -1,0 +1,15 @@
+package com.souvanik.souvalinker;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
+
+@SpringBootApplication
+@ConfigurationPropertiesScan
+public class SouvalinkerApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(SouvalinkerApplication.class, args);
+	}
+
+}

@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: souvalinker
+
+  datasource:
+    primary:
+      url: ${PRIMARY_DB_URL:jdbc:postgresql://localhost:5432/souvalinker}
+      username: ${DB_USERNAME:postgres}
+      password: ${DB_PASSWORD:postgres}
+      driver-class-name: org.postgresql.Driver
+
+    replica:
+      url: ${REPLICA_DB_URL:jdbc:postgresql://localhost:5432/souvalinker}
+      username: ${DB_USERNAME:postgres}
+      password: ${DB_PASSWORD:postgres}
+      driver-class-name: org.postgresql.Driver
+
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+    show-sql: false
+
+    properties:
+      hibernate:
+        format_sql: true
+
+
+server:
+  port: ${SERVER_PORT:8080}
+
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: INFO
+
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-in-real-env}
+    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+  short-url:
+    base-url: ${BASE_URL:http://localhost:8080}
+    code-length: ${SHORT_CODE_LENGTH:7}
+
+  mail:
+    from-email: ${FROM_EMAIL:no-reply@example.com}
+
+  aws:
+    region: ${AWS_REGION:ap-south-1}
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: always
+
+
+info:
+  app:
+    name: souvalinker
+    version: 1.0.0
+    description: URL Shortener Service
