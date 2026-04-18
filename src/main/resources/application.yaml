@@ -15,12 +15,13 @@ spring:
       password: ${DB_PASSWORD:postgres}
       driver-class-name: org.postgresql.Driver
 
-
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
   jpa:
     hibernate:
@@ -35,6 +36,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  shutdown: graceful
 
 
 logging:
@@ -51,6 +53,7 @@ app:
   jwt:
     secret: ${JWT_SECRET:change-me-in-real-env}
     expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
   auth:
     reset-token-expiry-minutes: 30
     verify-token-expiry-hours: 24
