@@ -7,6 +7,7 @@ package com.souvanik.souvalinker.controller;
  * https://opensource.org/licenses/MIT
  */
 
+import com.souvanik.souvalinker.annotation.RateLimited;
 import com.souvanik.souvalinker.constants.MessageConstants;
 import com.souvanik.souvalinker.dto.payload.AuthPayload;
 import com.souvanik.souvalinker.dto.request.LoginRequest;
@@ -18,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import static com.souvanik.souvalinker.model.RateLimitType.*;
+
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/auth")
@@ -26,16 +29,12 @@ public class AuthController {
     private final AuthService authService;
 
 
-
+    @RateLimited(strategy = REGISTER_IP)
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Void>>
-    register(@Valid
-            @RequestBody
-             RegisterRequest request) {
+    register(@Valid @RequestBody RegisterRequest request) {
 
-        authService.register(
-                request
-        );
+        authService.register(request);
 
         return ResponseEntity.ok(
                 new ApiResponse<>(
@@ -47,7 +46,7 @@ public class AuthController {
     }
 
 
-
+    @RateLimited(strategy = LOGIN_IP)
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthPayload>>
     login(
@@ -88,6 +87,7 @@ public class AuthController {
         );
     }
 
+    @RateLimited(strategy = FORGOT_PASSWORD_IP)
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Void>>
     forgotPassword(

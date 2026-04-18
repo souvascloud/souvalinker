@@ -1,6 +1,6 @@
 package com.souvanik.souvalinker.service.impl;
 
-import com.souvanik.souvalinker.config.AppProperties;
+import com.souvanik.souvalinker.config.properties.AppProperties;
 import com.souvanik.souvalinker.constants.MessageConstants;
 import com.souvanik.souvalinker.service.EmailService;
 
@@ -45,7 +45,7 @@ public class EmailServiceImpl implements EmailService {
     @Override
     public void sendPasswordResetEmail(String toEmail, String token) {
 
-        logger.info("Sending password reset email to {}", toEmail);
+        logger.info("event=password_reset_email_send_started");
 
         String body = buildResetEmailBody(token);
 
@@ -63,12 +63,11 @@ public class EmailServiceImpl implements EmailService {
 
             SendEmailResponse response = sesV2Client.sendEmail(request);
 
-
-            logger.info("Email sent successfully. messageId={}", response.messageId());
+            logger.info("event=email_sent_success messageId={}", response.messageId());
 
         } catch (SesV2Exception ex) {
 
-            logger.error("SES email send failed for {}", toEmail, ex);
+            logger.error("event=email_send_failed recipientHash={}", Integer.toHexString(toEmail.hashCode()), ex);
         }
     }
 
@@ -102,8 +101,7 @@ public class EmailServiceImpl implements EmailService {
 
 
 
-    private String buildVerificationEmailBody(
-            String token) {
+    private String buildVerificationEmailBody(String token) {
 
         return """
                Please verify your email.
@@ -117,16 +115,13 @@ public class EmailServiceImpl implements EmailService {
 
 
 
-    private String buildResetEmailBody(
-            String token) {
+    private String buildResetEmailBody(String token) {
 
         return """
                Reset your password.
 
                Reset token:
                %s
-               """.formatted(
-                token
-        );
+               """.formatted(token);
     }
 }

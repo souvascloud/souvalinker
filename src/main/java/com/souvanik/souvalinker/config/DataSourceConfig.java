@@ -1,5 +1,8 @@
 package com.souvanik.souvalinker.config;
 
+import com.souvanik.souvalinker.config.properties.AppProperties;
+import com.souvanik.souvalinker.config.properties.PrimaryDbProperties;
+import com.souvanik.souvalinker.config.properties.ReplicaDbProperties;
 import com.zaxxer.hikari.HikariDataSource;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -20,19 +23,32 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class DataSourceConfig {
 
-    private final AppProperties appProperties;
-
+    private final PrimaryDbProperties primaryDbProperties;
+    private final ReplicaDbProperties replicaDbProperties;
 
     @Bean
     public DataSource primaryDataSource() {
 
         HikariDataSource ds = new HikariDataSource();
 
-        ds.setJdbcUrl(appProperties.database().primary().url());
+        ds.setJdbcUrl(primaryDbProperties.url());
 
-        ds.setUsername(appProperties.database().primary().username());
+        ds.setUsername(primaryDbProperties.username());
 
-        ds.setPassword(appProperties.database().primary().password());
+        ds.setPassword(primaryDbProperties.password());
+
+        /*
+        Pool settings
+       */
+        ds.setMaximumPoolSize(20);
+
+        ds.setMinimumIdle(5);
+
+        ds.setConnectionTimeout(30000);
+
+        ds.setIdleTimeout(600000);
+
+        ds.setMaxLifetime(1800000);
 
         return ds;
     }
@@ -43,11 +59,23 @@ public class DataSourceConfig {
 
         HikariDataSource ds = new HikariDataSource();
 
-        ds.setJdbcUrl(appProperties.database().replica().url());
+        ds.setJdbcUrl(replicaDbProperties.url());
 
-        ds.setUsername(appProperties.database().replica().username());
+        ds.setUsername(replicaDbProperties.username());
 
-        ds.setPassword(appProperties.database().replica().password());
+        ds.setPassword(replicaDbProperties.password());
+        /*
+        Bigger read pool
+       */
+        ds.setMaximumPoolSize(40);
+
+        ds.setMinimumIdle(10);
+
+        ds.setConnectionTimeout(30000);
+
+        ds.setIdleTimeout(600000);
+
+        ds.setMaxLifetime(1800000);
 
         return ds;
     }

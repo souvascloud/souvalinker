@@ -70,4 +70,22 @@ public class GlobalExceptionHandler {
                         )
                 );
     }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRateLimitExceeded(RateLimitExceededException ex) {
+
+        return ResponseEntity
+                .status(
+                        HttpStatus.TOO_MANY_REQUESTS
+                )
+                .body(
+                        new ApiResponse<>(
+                                false,
+                                ex.getMessage(),
+                                null
+                        )
+                );
+    }
+
+
 }

@@ -1,5 +1,6 @@
 package com.souvanik.souvalinker.service.impl;
 
+import com.souvanik.souvalinker.config.properties.AppProperties;
 import com.souvanik.souvalinker.constants.SecurityConstants;
 import com.souvanik.souvalinker.dto.payload.AuthPayload;
 import com.souvanik.souvalinker.dto.request.LoginRequest;
@@ -18,6 +19,7 @@ import com.souvanik.souvalinker.service.TokenService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +47,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final EmailService emailService;
 
+    private final AppProperties appProperties;
+
 
 
     @Override
@@ -53,10 +57,12 @@ public class AuthServiceImpl implements AuthService {
         logger.info("Registering user email={}", request.email());
 
         if (userRepository.existsByEmail(request.email())) {
+            logger.warn("event=user_registration_rejected reason=email_exists email={}", request.email());
             throw new BadRequestException("Email already exists");
         }
 
         if (userRepository.existsByUsername(request.username())) {
+            logger.warn("event=user_registration_rejected reason=username_exists username={}", request.username());
             throw new BadRequestException("Username already exists");
         }
 
@@ -92,8 +98,8 @@ public class AuthServiceImpl implements AuthService {
                 java.time.LocalDateTime
                         .now()
                         .plusHours(
-                                SecurityConstants
-                                        .VERIFY_TOKEN_EXPIRY_HOURS
+                                appProperties.auth()
+                                        .verifyTokenExpiryHours()
                         )
         );
 
@@ -102,174 +108,131 @@ public class AuthServiceImpl implements AuthService {
 
         emailService.sendVerificationEmail(savedUser.getEmail(), verificationToken);
 
-        logger.info("User registered successfully email={}", savedUser.getEmail());
+        logger.info("event=user_registration_success userId={}", savedUser.getId());
     }
 
 
 
     @Override
-    public AuthPayload login(
-            LoginRequest request) {
+    public AuthPayload login(LoginRequest request) {
 
-        User user =
-                userRepository
-                        .findByUsername(
-                                request.username()
-                        )
-                        .orElseThrow(
-                                () -> new RuntimeException(
-                                        "User not found"
-                                )
-                        );
+        logger.info("event=login_attempt username={}", request.username());
+
+        User user = userRepository.findByUsername(
+                        request.username()
+                )
+                .orElseThrow(() -> {
+
+                    logger.warn(
+                            "event=login_rejected reason=user_not_found username={}",
+                            request.username()
+                    );
+
+                    return new ResourceNotFoundException(
+                            "User not found"
+                    );
+                });
 
 
-        if (user.getStatus()
-                != UserStatus.ACTIVE) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            logger.warn("event=login_rejected reason=user_not_verified userId={}", user.getId());
 
-            throw new RuntimeException(
-                    "Email not verified"
-            );
+            throw new BadRequestException("Email not verified");
         }
 
 
-        if (!passwordEncoder.matches(
-                request.password(),
-                user.getPasswordHash())) {
+        if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
 
-            throw new RuntimeException(
-                    "Invalid credentials"
-            );
+            logger.warn("event=login_rejected reason=invalid_credentials userId={}", user.getId());
+
+            throw new BadCredentialsException("Invalid credentials");
         }
 
 
-        String jwt =
-                tokenService.generateJwt(
-                        user.getId()
-                );
+        String jwt = tokenService.generateJwt(user.getId());
 
 
-        return new AuthPayload(
-                jwt,
-                SecurityConstants
-                        .TOKEN_TYPE_BEARER
-        );
+        logger.info("event=login_success userId={}", user.getId());
+
+
+        return new AuthPayload(jwt, SecurityConstants.TOKEN_TYPE_BEARER);
     }
 
 
-
     @Override
-    public void verifyEmail(
-            String token) {
+    public void verifyEmail(String token) {
 
-        logger.info(
-                "Starting email verification for token {}",
-                token
-        );
+        logger.info("event=email_verification_started");
 
 
         AuthToken authToken =
                 authTokenRepository
                         .findByToken(token)
                         .orElseThrow(() -> {
-
-                            logger.error(
-                                    "Verification token not found"
-                            );
-
-                            return new ResourceNotFoundException(
-                                    "Invalid verification token"
-                            );
+                            logger.warn("event=email_verification_rejected reason=token_not_found");
+                            return new ResourceNotFoundException("Invalid verification token");
                         });
 
 
-
         if (authToken.isExpired()) {
-
-            logger.error(
-                    "Verification token expired"
-            );
-
-            throw new BadRequestException(
-                    "Verification token expired"
-            );
+            logger.warn("event=email_verification_rejected reason=token_expired");
+            throw new BadRequestException("Verification token expired");
         }
 
 
 
         if (authToken.isUsed()) {
 
-            logger.error(
-                    "Verification token already used"
-            );
+            logger.warn("event=email_verification_rejected reason=token_used");
 
-            throw new BadRequestException(
-                    "Verification token already used"
-            );
+            throw new BadRequestException("Verification token already used");
         }
 
 
 
-        if (authToken.getType()
-                != TokenType.VERIFY) {
+        if (authToken.getType() != TokenType.VERIFY) {
+            logger.warn("event=email_verification_rejected reason=invalid_token_type");
 
-            logger.error(
-                    "Invalid token type"
-            );
-
-            throw new BadRequestException(
-                    "Invalid token type"
-            );
+            throw new BadRequestException("Invalid token type");
         }
 
 
 
-        User user =
-                authToken.getUser();
+        User user = authToken.getUser();
+
+        user.setStatus(UserStatus.ACTIVE);
+
+        authToken.setUsed(true);
 
 
-        user.setStatus(
-                UserStatus.ACTIVE
-        );
+        userRepository.save(user);
+
+        authTokenRepository.save(authToken);
 
 
-        authToken.setUsed(
-                true
-        );
-
-
-        userRepository.save(
-                user
-        );
-
-        authTokenRepository.save(
-                authToken
-        );
-
-
-        logger.info(
-                "User verified successfully: {}",
-                user.getEmail()
-        );
+        logger.info("event=email_verification_success userId={}", user.getId());
     }
 
 
     @Override
     public void forgotPassword(String email) {
-        logger.info("Processing forgot password email={}", email);
+
+        logger.info("event=password_reset_requested email={}", email);
+
 
         User user = userRepository
-                        .findByEmail(email)
-                        .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "User not found"
-                                )
-                        );
+                .findByEmail(email)
+                .orElseThrow(() -> {
+                    logger.warn("event=password_reset_rejected reason=user_not_found email={}", email);
+                    return new ResourceNotFoundException("User not found");
+                });
 
 
         String resetToken = tokenService.generatePasswordResetToken();
 
-
-        AuthToken authToken = authTokenRepository.findByUserIdAndType(
+        AuthToken authToken =
+                authTokenRepository
+                        .findByUserIdAndType(
                                 user.getId(),
                                 TokenType.RESET
                         )
@@ -290,111 +253,66 @@ public class AuthServiceImpl implements AuthService {
                 java.time.LocalDateTime
                         .now()
                         .plusMinutes(
-                                SecurityConstants
-                                        .RESET_TOKEN_EXPIRY_MINUTES
+                                appProperties.auth()
+                                        .resetTokenExpiryMinutes()
                         )
         );
 
 
         authTokenRepository.save(authToken);
 
-
         emailService.sendPasswordResetEmail(user.getEmail(), resetToken);
 
-
-        logger.info("Reset email sent successfully email={}", user.getEmail());
+        logger.info("event=password_reset_email_sent userId={}", user.getId());
     }
 
     @Override
     public void resetPassword(String token, String newPassword) {
 
-        logger.info("Starting password reset");
+        logger.info("event=password_reset_started");
+
 
         AuthToken authToken =
                 authTokenRepository
                         .findByToken(token)
                         .orElseThrow(() -> {
-
-                            logger.error(
-                                    "Reset token not found"
-                            );
-
-                            return new ResourceNotFoundException(
-                                    "Invalid reset token"
-                            );
+                            logger.warn("event=password_reset_rejected reason=token_not_found");
+                            return new ResourceNotFoundException("Invalid reset token");
                         });
 
 
-
         if (authToken.isExpired()) {
-
-            logger.error(
-                    "Reset token expired"
-            );
-
-            throw new BadRequestException(
-                    "Reset token expired"
-            );
+            logger.warn("event=password_reset_rejected reason=token_expired");
+            throw new BadRequestException("Reset token expired");
         }
 
 
 
         if (authToken.isUsed()) {
+            logger.warn("event=password_reset_rejected reason=token_used");
 
-            logger.error(
-                    "Reset token already used"
-            );
-
-            throw new BadRequestException(
-                    "Reset token already used"
-            );
+            throw new BadRequestException("Reset token already used");
         }
 
 
+        if (authToken.getType() != TokenType.RESET) {
+            logger.warn("event=password_reset_rejected reason=invalid_token_type");
 
-        if (authToken.getType()
-                != TokenType.RESET) {
-
-            logger.error(
-                    "Invalid token type"
-            );
-
-            throw new BadRequestException(
-                    "Invalid token type"
-            );
+            throw new BadRequestException("Invalid token type");
         }
 
+        User user = authToken.getUser();
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+
+        authToken.setUsed(true);
 
 
-        User user =
-                authToken.getUser();
+        userRepository.save(user);
 
+        authTokenRepository.save(authToken);
 
-        user.setPasswordHash(
-                passwordEncoder.encode(
-                        newPassword
-                )
-        );
-
-
-        authToken.setUsed(
-                true
-        );
-
-
-        userRepository.save(
-                user
-        );
-
-        authTokenRepository.save(
-                authToken
-        );
-
-
-        logger.info(
-                "Password reset successful for {}",
-                user.getEmail()
-        );
+        logger.info("event=password_reset_success userId={}", user.getId());
     }
 
 }

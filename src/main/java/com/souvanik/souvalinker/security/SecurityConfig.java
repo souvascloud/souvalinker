@@ -3,6 +3,7 @@ package com.souvanik.souvalinker.security;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -24,6 +25,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
 
 
     @Bean
@@ -43,21 +45,39 @@ public class SecurityConfig {
                 .csrf(
                         AbstractHttpConfigurer::disable
                 )
+                .exceptionHandling(ex ->
+                        ex.authenticationEntryPoint(
+                                authenticationEntryPoint
+                        )
+                )
 
                 .authorizeHttpRequests(auth -> auth
-
+                        /*
+                         Public auth endpoints
+                         */
                         .requestMatchers(
-                                "/api/auth/**"
-                        ).permitAll()
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/verify",
+                                "/api/auth/forgot-password"
+                        )
+                        .permitAll()
 
+                        /*
+                         Public actuator endpoints
+                         */
                         .requestMatchers(
-                                "/api/urls/**"
-                        ).permitAll()
-
+                                "/actuator/health",
+                                "/actuator/info"
+                        )
+                        .permitAll()
+                         .requestMatchers(
+                                HttpMethod.GET,
+                                "/*"
+                         ).permitAll()
                         .anyRequest()
                         .authenticated()
                 )
-
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

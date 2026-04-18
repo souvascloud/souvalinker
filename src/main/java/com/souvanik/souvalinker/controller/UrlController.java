@@ -1,5 +1,6 @@
 package com.souvanik.souvalinker.controller;
 
+import com.souvanik.souvalinker.annotation.RateLimited;
 import com.souvanik.souvalinker.constants.MessageConstants;
 import com.souvanik.souvalinker.dto.payload.ShortUrlPayload;
 import com.souvanik.souvalinker.dto.request.CreateShortUrlRequest;
@@ -14,6 +15,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
+
+import static com.souvanik.souvalinker.model.RateLimitType.REDIRECT_IP;
+import static com.souvanik.souvalinker.model.RateLimitType.URL_CREATE_USER;
 
 /*
  * Copyright (c) 2026 Souvanik Saha
@@ -31,6 +35,7 @@ public class UrlController {
     private final UrlService urlService;
 
 
+    @RateLimited(strategy = URL_CREATE_USER)
     @PostMapping
     public ResponseEntity<ApiResponse<ShortUrlPayload>> createShortUrl(@Valid @RequestBody CreateShortUrlRequest request, Authentication authentication) {
 
@@ -48,7 +53,7 @@ public class UrlController {
         );
     }
 
-
+    @RateLimited(strategy = REDIRECT_IP)
     @GetMapping("/{shortCode}")
     public ResponseEntity<Void> redirect(@PathVariable String shortCode) {
 

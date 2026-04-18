@@ -1,9 +1,11 @@
 package com.souvanik.souvalinker.service.impl;
 
+import com.souvanik.souvalinker.config.properties.AppProperties;
 import com.souvanik.souvalinker.service.TokenService;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
@@ -16,56 +18,83 @@ import java.util.UUID;
  * https://opensource.org/licenses/MIT
  */
 @Service
+@RequiredArgsConstructor
 public class TokenServiceImpl  implements TokenService {
 
-    // TODO externalize later
-    private static final String JWT_SECRET =
-            "replace-this-secret-later";
 
-    // TODO externalize later
-    private static final long JWT_EXPIRATION_MS =
-            3600000;
+    private final AppProperties appProperties;
+    private static final Logger logger = LoggerFactory.getLogger(TokenServiceImpl.class);
+
 
 
     @Override
     public String generateJwt(Long userId) {
 
-        return Jwts.builder()
-                .setSubject(
-                        String.valueOf(userId)
-                )
-                .setIssuedAt(
-                        new Date()
-                )
-                .setExpiration(
-                        new Date(
-                                System.currentTimeMillis()
-                                        + JWT_EXPIRATION_MS
+        logger.debug("event=jwt_generation_started userId={}", userId);
+
+        String jwt =
+                Jwts.builder()
+                        .setSubject(
+                                String.valueOf(userId)
                         )
-                )
-                .signWith(
-                        SignatureAlgorithm.HS256,
-                        JWT_SECRET
-                )
-                .compact();
+                        .setIssuedAt(
+                                new Date()
+                        )
+                        .setExpiration(
+                                new Date(
+                                        System.currentTimeMillis()
+                                                + appProperties
+                                                .jwt()
+                                                .expirationMs()
+                                )
+                        )
+                        .signWith(
+                                SignatureAlgorithm.HS256,
+                                appProperties.jwt().secret()
+                        )
+                        .compact();
+
+
+        logger.debug("event=jwt_generation_success userId={}", userId);
+
+        return jwt;
     }
-
-
     @Override
-    public boolean validateJwt(
-            String token) {
+    public boolean validateJwt(String token) {
 
         try {
 
             Jwts.parser()
                     .setSigningKey(
-                            JWT_SECRET
+                            appProperties.jwt().secret()
                     )
-                    .parseClaimsJws(token);
+                    .parseClaimsJws(
+                            token
+                    );
 
             return true;
 
+        } catch (ExpiredJwtException ex) {
+
+            logger.warn("event=jwt_validation_failed reason=expired");
+
+            return false;
+
+        } catch (MalformedJwtException ex) {
+
+            logger.warn("event=jwt_validation_failed reason=malformed");
+
+            return false;
+
+        } catch (SignatureException ex) {
+
+            logger.warn("event=jwt_validation_failed reason=bad_signature");
+
+            return false;
+
         } catch (Exception ex) {
+
+            logger.error("event=jwt_validation_failed reason=unexpected", ex);
 
             return false;
         }
@@ -90,20 +119,29 @@ public class TokenServiceImpl  implements TokenService {
      }
 
     @Override
-    public Long extractUserId(
-            String token) {
+    public Long extractUserId(String token) {
 
-        Claims claims =
-                Jwts.parser()
-                        .setSigningKey(
-                                JWT_SECRET
-                        )
-                        .parseClaimsJws(token)
-                        .getBody();
+        try {
 
-        return Long.valueOf(
-                claims.getSubject()
-        );
+            Claims claims =
+                    Jwts.parser()
+                            .setSigningKey(
+                                    appProperties.jwt().secret()
+                            )
+                            .parseClaimsJws(
+                                    token
+                            )
+                            .getBody();
+
+            return Long.valueOf(
+                    claims.getSubject()
+            );
+
+        } catch (Exception ex) {
+
+            logger.warn("event=jwt_user_extract_failed");
+
+            throw ex;
+        }
     }
-
 }
