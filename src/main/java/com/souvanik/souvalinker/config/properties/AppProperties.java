@@ -23,7 +23,8 @@ public record AppProperties(
     ) {}
     public record Auth(
             long resetTokenExpiryMinutes,
-            long verifyTokenExpiryHours
+            long verifyTokenExpiryHours,
+            long refreshTokenExpiryDays
     ) {}
     public record ShortUrl(
             String baseUrl,

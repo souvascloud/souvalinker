@@ -1,5 +1,7 @@
 package com.souvanik.souvalinker.service;
 
+import java.util.Date;
+
 /*
  * Copyright (c) 2026 Souvanik Saha
  *
@@ -7,14 +9,25 @@ package com.souvanik.souvalinker.service;
  * https://opensource.org/licenses/MIT
  */
 public interface TokenService {
-    String generateJwt(Long userId);
 
-    boolean validateJwt(String token);
+    String generateAccessToken(Long userId);
+
+    boolean isTokenValid(String token);
+
+    Long extractUserId(String token);
+
+    String extractJti(String token);
+
+    Date extractExpiration(String token);
+
+
+
+    String generateRefreshToken();
+
 
     String generateVerificationToken();
 
     String generatePasswordResetToken();
 
-    Long extractUserId(String token);
-
+    String hashToken(String token);
 }

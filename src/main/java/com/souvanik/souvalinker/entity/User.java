@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 /*
  * Copyright (c) 2026 Souvanik Saha
@@ -24,10 +25,10 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50)
     private String username;
 
-    @Column(nullable = false, unique = true, length = 255)
+    @Column(nullable = false, length = 255)
     private String email;
 
     @Column(name = "password_hash", nullable = false, length = 255)
@@ -43,11 +44,15 @@ public class User {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+
     @PrePersist
     protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+
         this.createdAt = now;
         this.updatedAt = now;
+
+        normalizeFields();
 
         if (this.status == null) {
             this.status = UserStatus.INACTIVE;
@@ -56,6 +61,17 @@ public class User {
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now(ZoneOffset.UTC);
+        normalizeFields();
+    }
+
+
+    private void normalizeFields() {
+        if (this.email != null) {
+            this.email = this.email.trim().toLowerCase();
+        }
+        if (this.username != null) {
+            this.username = this.username.trim().toLowerCase();
+        }
     }
 }

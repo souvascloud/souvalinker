@@ -7,9 +7,7 @@ package com.souvanik.souvalinker.dto.payload;
  * https://opensource.org/licenses/MIT
  */
 public record AuthPayload(
-
         String accessToken,
-
+        String refreshToken,
         String tokenType
-
 ) {}

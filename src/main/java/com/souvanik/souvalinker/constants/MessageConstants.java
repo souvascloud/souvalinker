@@ -7,6 +7,8 @@ package com.souvanik.souvalinker.constants;
  * https://opensource.org/licenses/MIT
  */
 public final class MessageConstants {
+    public static final String LOGOUT_SUCCESS = "Logout successfully!";
+
     private MessageConstants() {}
 
     public static final String USER_REGISTERED =
@@ -32,4 +34,7 @@ public final class MessageConstants {
 
     public static final String RESET_PASSWORD_SUBJECT =
             "Reset your password";
+    public static final String TOKEN_REFRESH_SUCCESS =
+            "Refresh Token Generated successfully";
+
 }

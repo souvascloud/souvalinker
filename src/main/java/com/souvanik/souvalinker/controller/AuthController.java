@@ -11,6 +11,8 @@ import com.souvanik.souvalinker.annotation.RateLimited;
 import com.souvanik.souvalinker.constants.MessageConstants;
 import com.souvanik.souvalinker.dto.payload.AuthPayload;
 import com.souvanik.souvalinker.dto.request.LoginRequest;
+import com.souvanik.souvalinker.dto.request.LogoutRequest;
+import com.souvanik.souvalinker.dto.request.RefreshRequest;
 import com.souvanik.souvalinker.dto.request.RegisterRequest;
 import com.souvanik.souvalinker.dto.response.ApiResponse;
 import com.souvanik.souvalinker.service.AuthService;
@@ -33,78 +35,50 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Void>>
     register(@Valid @RequestBody RegisterRequest request) {
-
         authService.register(request);
-
-        return ResponseEntity.ok(
-                new ApiResponse<>(
-                        true,
-                        MessageConstants.USER_REGISTERED,
-                        null
-                )
-        );
+        return ResponseEntity.ok(new ApiResponse<>(true, MessageConstants.USER_REGISTERED, null));
     }
 
 
     @RateLimited(strategy = LOGIN_IP)
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthPayload>>
-    login(
-            @Valid
-            @RequestBody
-            LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthPayload>> login(@Valid @RequestBody LoginRequest request) {
 
-        AuthPayload payload =
-                authService.login(
-                        request
-                );
+        AuthPayload payload = authService.login(request);
 
-        return ResponseEntity.ok(
-                new ApiResponse<>(
-                        true,
-                        MessageConstants.LOGIN_SUCCESS,
-                        payload
-                )
-        );
+        return ResponseEntity.ok(new ApiResponse<>(true, MessageConstants.LOGIN_SUCCESS, payload));
     }
 
     @GetMapping("/verify")
-    public ResponseEntity<ApiResponse<Void>>
-    verifyEmail(
-            @RequestParam
-            String token) {
+    public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam String token) {
 
-        authService.verifyEmail(
-                token
-        );
+        authService.verifyEmail(token);
 
-        return ResponseEntity.ok(
-                new ApiResponse<>(
-                        true,
-                        MessageConstants.EMAIL_VERIFIED,
-                        null
-                )
-        );
+        return ResponseEntity.ok(new ApiResponse<>(true, MessageConstants.EMAIL_VERIFIED, null));
     }
 
     @RateLimited(strategy = FORGOT_PASSWORD_IP)
     @PostMapping("/forgot-password")
-    public ResponseEntity<ApiResponse<Void>>
-    forgotPassword(
-            @RequestParam
-            String email) {
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestParam String email) {
 
-        authService.forgotPassword(
-                email
-        );
+        authService.forgotPassword(email);
 
-        return ResponseEntity.ok(
-                new ApiResponse<>(
-                        true,
-                        MessageConstants
-                                .PASSWORD_RESET_EMAIL_SENT,
-                        null
-                )
-        );
+        return ResponseEntity.ok(new ApiResponse<>(true, MessageConstants.PASSWORD_RESET_EMAIL_SENT, null));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthPayload>> refresh(@RequestBody RefreshRequest request) {
+
+        AuthPayload payload = authService.refresh(request.refreshToken());
+
+        return ResponseEntity.ok(new ApiResponse<>(true, MessageConstants.TOKEN_REFRESH_SUCCESS, payload));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(@RequestBody LogoutRequest request) {
+
+        authService.logout(request.refreshToken());
+
+        return ResponseEntity.ok(new ApiResponse<>(true, MessageConstants.LOGOUT_SUCCESS, null));
     }
 }

@@ -21,22 +21,19 @@ public class AsyncConfig {
 
     @Bean(name="emailExecutor")
     public Executor emailExecutor() {
-
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
         executor.setCorePoolSize(5);
-
         executor.setMaxPoolSize(20);
-
         executor.setQueueCapacity(100);
 
         executor.setThreadNamePrefix("email-");
 
-        executor.setWaitForTasksToCompleteOnShutdown(true);
-
-        executor.setAwaitTerminationSeconds(30);
-
+        executor.setKeepAliveSeconds(60);
         executor.setAllowCoreThreadTimeOut(true);
+
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
 
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
 

@@ -3,11 +3,18 @@ package com.souvanik.souvalinker.service.impl;
 import com.souvanik.souvalinker.config.properties.AppProperties;
 import com.souvanik.souvalinker.service.TokenService;
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.Key;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.Date;
 import java.util.UUID;
 
@@ -19,129 +26,107 @@ import java.util.UUID;
  */
 @Service
 @RequiredArgsConstructor
-public class TokenServiceImpl  implements TokenService {
+public class TokenServiceImpl implements TokenService {
+
+        private final AppProperties appProperties;
+
+        private Key getSigningKey() {
+            byte[] keyBytes = Base64.getDecoder().decode(appProperties.jwt().secret());
+            return Keys.hmacShaKeyFor(keyBytes);
+        }
+
+        @Override
+        public String generateAccessToken(Long userId) {
+
+            Date now = new Date();
+            Date expiry = new Date(now.getTime() + appProperties.jwt().expirationMs());
+
+            return Jwts.builder()
+                    .setSubject(String.valueOf(userId))
+                    .setId(UUID.randomUUID().toString())
+                    .setIssuedAt(now)
+                    .setExpiration(expiry)
+                    .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                    .compact();
+        }
+
+        @Override
+        public boolean isTokenValid(String token) {
+            try {
+                Jwts.parserBuilder()
+                        .setSigningKey(getSigningKey())
+                        .build()
+                        .parseClaimsJws(token);
+                return true;
+            } catch (JwtException | IllegalArgumentException ex) {
+                return false;
+            }
+        }
+
+        @Override
+        public Long extractUserId(String token) {
+            return Long.valueOf(extractAllClaims(token).getSubject());
+        }
+
+        @Override
+        public String extractJti(String token) {
+            return extractAllClaims(token).getId();
+        }
+
+        @Override
+        public Date extractExpiration(String token) {
+            return extractAllClaims(token).getExpiration();
+        }
+
+        private Claims extractAllClaims(String token) {
+            return Jwts.parserBuilder()
+                    .setSigningKey(getSigningKey())
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+        }
 
 
-    private final AppProperties appProperties;
-    private static final Logger logger = LoggerFactory.getLogger(TokenServiceImpl.class);
+        @Override
+        public String generateRefreshToken() {
+            byte[] randomBytes = new byte[32];
+            new SecureRandom().nextBytes(randomBytes);
+            return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+        }
 
+        @Override
+        public String generateVerificationToken() {
+            return UUID.randomUUID().toString();
+        }
 
+        @Override
+        public String generatePasswordResetToken() {
+            return UUID.randomUUID().toString();
+        }
 
-    @Override
-    public String generateJwt(Long userId) {
-
-        logger.debug("event=jwt_generation_started userId={}", userId);
-
-        String jwt =
-                Jwts.builder()
-                        .setSubject(
-                                String.valueOf(userId)
-                        )
-                        .setIssuedAt(
-                                new Date()
-                        )
-                        .setExpiration(
-                                new Date(
-                                        System.currentTimeMillis()
-                                                + appProperties
-                                                .jwt()
-                                                .expirationMs()
-                                )
-                        )
-                        .signWith(
-                                SignatureAlgorithm.HS256,
-                                appProperties.jwt().secret()
-                        )
-                        .compact();
-
-
-        logger.debug("event=jwt_generation_success userId={}", userId);
-
-        return jwt;
-    }
-    @Override
-    public boolean validateJwt(String token) {
-
+    public String hashToken(String token) {
         try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
 
-            Jwts.parser()
-                    .setSigningKey(
-                            appProperties.jwt().secret()
-                    )
-                    .parseClaimsJws(
-                            token
-                    );
+            return bytesToHex(hash);
 
-            return true;
-
-        } catch (ExpiredJwtException ex) {
-
-            logger.warn("event=jwt_validation_failed reason=expired");
-
-            return false;
-
-        } catch (MalformedJwtException ex) {
-
-            logger.warn("event=jwt_validation_failed reason=malformed");
-
-            return false;
-
-        } catch (SignatureException ex) {
-
-            logger.warn("event=jwt_validation_failed reason=bad_signature");
-
-            return false;
-
-        } catch (Exception ex) {
-
-            logger.error("event=jwt_validation_failed reason=unexpected", ex);
-
-            return false;
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 algorithm not found", e);
         }
     }
 
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder hex = new StringBuilder(2 * bytes.length);
 
-    @Override
-    public String generateVerificationToken() {
-
-        return UUID
-                .randomUUID()
-                .toString();
-    }
-
-
-    @Override
-    public String generatePasswordResetToken() {
-
-        return UUID
-                .randomUUID()
-                .toString();
-     }
-
-    @Override
-    public Long extractUserId(String token) {
-
-        try {
-
-            Claims claims =
-                    Jwts.parser()
-                            .setSigningKey(
-                                    appProperties.jwt().secret()
-                            )
-                            .parseClaimsJws(
-                                    token
-                            )
-                            .getBody();
-
-            return Long.valueOf(
-                    claims.getSubject()
-            );
-
-        } catch (Exception ex) {
-
-            logger.warn("event=jwt_user_extract_failed");
-
-            throw ex;
+        for (byte b : bytes) {
+            String hexChar = Integer.toHexString(0xff & b);
+            if (hexChar.length() == 1) {
+                hex.append('0');
+            }
+            hex.append(hexChar);
         }
+
+        return hex.toString();
     }
 }

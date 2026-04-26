@@ -11,11 +11,16 @@ import com.souvanik.souvalinker.dto.request.RegisterRequest;
  * https://opensource.org/licenses/MIT
  */
 public interface AuthService {
+
     void register(RegisterRequest request);
+
+    void verifyEmail(String token);
 
     AuthPayload login(LoginRequest request);
 
-    void verifyEmail(String token);
+    AuthPayload refresh(String refreshToken);
+
+    void logout(String refreshToken);
 
     void forgotPassword(String email);
 

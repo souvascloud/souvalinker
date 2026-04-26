@@ -1,4 +1,4 @@
-package com.souvanik.souvalinker.entity;
+package com.souvanik.souvalinker.dto.request;
 
 /*
  * Copyright (c) 2026 Souvanik Saha
@@ -6,8 +6,4 @@ package com.souvanik.souvalinker.entity;
  * Licensed under the MIT License.
  * https://opensource.org/licenses/MIT
  */
-public enum TokenType {
-    VERIFY,
-    RESET,
-    REFRESH
-}
+public record RefreshRequest(String refreshToken) {}

@@ -4,21 +4,28 @@ spring:
 
   datasource:
     primary:
-      url: ${PRIMARY_DB_URL:jdbc:postgresql://localhost:5432/souvalinker}
-      username: ${DB_USERNAME:postgres}
-      password: ${DB_PASSWORD:postgres}
+      url: ${PRIMARY_DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
 
     replica:
-      url: ${REPLICA_DB_URL:jdbc:postgresql://localhost:5432/souvalinker}
-      username: ${DB_USERNAME:postgres}
-      password: ${DB_PASSWORD:postgres}
+      url: ${REPLICA_DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
+
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      connection-timeout: 20000
 
   data:
     redis:
-      host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+      password: ${REDIS_PASSWORD}
 
   lifecycle:
     timeout-per-shutdown-phase: 30s
@@ -26,18 +33,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
-
     show-sql: false
-
     properties:
       hibernate:
         format_sql: true
 
-
 server:
   port: ${SERVER_PORT:8080}
   shutdown: graceful
-
 
 logging:
   level:
@@ -51,23 +54,23 @@ logging:
 
 app:
   jwt:
-    secret: ${JWT_SECRET:change-me-in-real-env}
-    expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+    secret: ${JWT_SECRET}
+    expiration-ms: ${JWT_EXPIRATION_MS:900000}
 
   auth:
-    reset-token-expiry-minutes: 30
-    verify-token-expiry-hours: 24
+    reset-token-expiry-minutes: ${RESET_TOKEN_EXPIRY_MINUTES:30}
+    verify-token-expiry-hours: ${VERIFY_TOKEN_EXPIRY_HOURS:24}
+    refresh-token-expiry-days: ${REFRESH_TOKEN_EXPIRY_DAYS:7}
 
   short-url:
-    base-url: ${BASE_URL:http://localhost:8080}
+    base-url: ${BASE_URL}
     code-length: ${SHORT_CODE_LENGTH:7}
 
   mail:
-    from-email: ${FROM_EMAIL:no-reply@example.com}
+    from-email: ${FROM_EMAIL}
 
   aws:
-    region: ${AWS_REGION:ap-south-1}
-
+    region: ${AWS_REGION}
 
 management:
   endpoints:
@@ -86,7 +89,6 @@ management:
   tracing:
     sampling:
       probability: 1.0
-
 
 info:
   app:

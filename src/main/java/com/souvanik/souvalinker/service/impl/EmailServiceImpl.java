@@ -29,71 +29,90 @@ public class EmailServiceImpl implements EmailService {
 
     private final AppProperties appProperties;
 
-    @Async("emailExecutor")
+
     @Override
     public void sendVerificationEmail(String toEmail, String token) {
 
-        logger.info("Sending verification email to {}", toEmail);
+        String recipientHash = hashEmail(toEmail);
 
-        String body = buildVerificationEmailBody(token);
+        logger.info("event=email_send_attempt type=VERIFY recipientHash={}", recipientHash);
 
-        sendEmail(toEmail, MessageConstants.VERIFY_EMAIL_SUBJECT, body);
+        try {
+            String link = buildVerificationLink(token);
+            String body = buildVerificationEmailBody(link);
+
+            sendEmail(toEmail, MessageConstants.VERIFY_EMAIL_SUBJECT, body);
+
+            logger.info("event=email_send_success type=VERIFY recipientHash={}", recipientHash);
+
+        } catch (Exception ex) {
+            logger.error("event=email_send_failed type=VERIFY recipientHash={}", recipientHash, ex);
+        }
     }
-
 
     @Async("emailExecutor")
     @Override
     public void sendPasswordResetEmail(String toEmail, String token) {
 
-        logger.info("event=password_reset_email_send_started");
+        String recipientHash = hashEmail(toEmail);
 
-        String body = buildResetEmailBody(token);
+        logger.info("event=email_send_attempt type=RESET recipientHash={}", recipientHash);
 
-        sendEmail(toEmail, MessageConstants.RESET_PASSWORD_SUBJECT, body);
+        try {
+            String link = buildResetLink(token);
+            String body = buildResetEmailBody(link);
+
+            sendEmail(toEmail, MessageConstants.RESET_PASSWORD_SUBJECT, body);
+
+            logger.info("event=email_send_success type=RESET recipientHash={}", recipientHash);
+
+        } catch (Exception ex) {
+            logger.error("event=email_send_failed type=RESET recipientHash={}", recipientHash, ex);
+        }
     }
-
 
 
     private void sendEmail(String toEmail, String subject, String body) {
 
-        try {
+        SendEmailRequest request = buildEmailRequest(toEmail, subject, body);
 
-            SendEmailRequest request = buildEmailRequest(toEmail, subject, body);
+        SendEmailResponse response = sesV2Client.sendEmail(request);
 
-
-            SendEmailResponse response = sesV2Client.sendEmail(request);
-
-            logger.info("event=email_sent_success messageId={}", response.messageId());
-
-        } catch (SesV2Exception ex) {
-
-            logger.error("event=email_send_failed recipientHash={}", Integer.toHexString(toEmail.hashCode()), ex);
-        }
+        logger.debug("event=ses_response messageId={}", response.messageId());
     }
+
 
 
 
     private SendEmailRequest buildEmailRequest(String toEmail, String subject, String body) {
 
-        Destination destination = Destination.builder().toAddresses(toEmail).build();
-        Content subjectContent = Content.builder().data(subject).build();
-        Content bodyContent = Content.builder().data(body).build();
+        Destination destination = Destination.builder()
+                .toAddresses(toEmail)
+                .build();
 
-        Body emailBody = Body.builder().text(bodyContent).build();
+        Content subjectContent = Content.builder()
+                .data(subject)
+                .build();
 
+        Content bodyContent = Content.builder()
+                .data(body)
+                .build();
 
-        Message message = Message.builder().subject(subjectContent).body(emailBody).build();
+        Body emailBody = Body.builder()
+                .text(bodyContent)
+                .build();
 
+        Message message = Message.builder()
+                .subject(subjectContent)
+                .body(emailBody)
+                .build();
 
-        EmailContent emailContent = EmailContent.builder().simple(message).build();
-
+        EmailContent emailContent = EmailContent.builder()
+                .simple(message)
+                .build();
 
         return SendEmailRequest.builder()
-                .fromEmailAddress(
-                        appProperties
-                                .mail()
-                                .fromEmail()
-                )
+                .fromEmailAddress(appProperties.mail().fromEmail())
                 .destination(destination)
                 .content(emailContent)
                 .build();
@@ -101,27 +120,46 @@ public class EmailServiceImpl implements EmailService {
 
 
 
-    private String buildVerificationEmailBody(String token) {
+    private String buildVerificationLink(String token) {
+        return appProperties.shortUrl().baseUrl() + "/verify?token=" + token;
+    }
 
+    private String buildResetLink(String token) {
+        return appProperties.shortUrl().baseUrl() + "/reset-password?token=" + token;
+    }
+
+    private String buildVerificationEmailBody(String link) {
         return """
-               Please verify your email.
+                Hi,
 
-               Verification token:
-               %s
-               """.formatted(
-                token
-        );
+                Please verify your email by clicking the link below:
+
+                %s
+
+                If you did not request this, please ignore.
+
+                Thanks,
+                Your Team
+                """.formatted(link);
+    }
+
+    private String buildResetEmailBody(String link) {
+        return """
+                Hi,
+
+                Click below link to reset your password:
+
+                %s
+
+                If you did not request this, please ignore.
+
+                Thanks,
+                Your Team
+                """.formatted(link);
     }
 
 
-
-    private String buildResetEmailBody(String token) {
-
-        return """
-               Reset your password.
-
-               Reset token:
-               %s
-               """.formatted(token);
+    private String hashEmail(String email) {
+        return Integer.toHexString(email.hashCode());
     }
 }
