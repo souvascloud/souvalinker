@@ -1,6 +1,10 @@
-# SouvaLinker — Scalable URL Shortener
+# 🔗 SouvaLinker – Scalable URL Shortener with Secure Auth
 
-URL shortener built with **Java, Spring Boot, Redis, PostgreSQL, AWS, and Terraform (in progress)**.
+Backend system built with Spring Boot that provides URL shortening along with a secure, scalable authentication system.
+
+This project demonstrates real-world backend engineering practices including event-driven design, token security, rate limiting, and observability.
+
+---
 
 ## Architecture Diagram
 
