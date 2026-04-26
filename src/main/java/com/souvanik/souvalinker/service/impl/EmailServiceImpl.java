@@ -12,6 +12,9 @@ import org.springframework.stereotype.Service;
 import software.amazon.awssdk.services.sesv2.SesV2Client;
 import software.amazon.awssdk.services.sesv2.model.*;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
 
 /*
  * Copyright (c) 2026 Souvanik Saha
@@ -50,7 +53,7 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    @Async("emailExecutor")
+
     @Override
     public void sendPasswordResetEmail(String toEmail, String token) {
 
@@ -68,6 +71,25 @@ public class EmailServiceImpl implements EmailService {
 
         } catch (Exception ex) {
             logger.error("event=email_send_failed type=RESET recipientHash={}", recipientHash, ex);
+        }
+    }
+
+    @Override
+    public void sendPasswordChangedEmail(String toEmail) {
+
+        String recipientHash = hashEmail(toEmail);
+
+        logger.info("event=email_send_attempt type=PASSWORD CHANGED recipientHash={}", recipientHash);
+
+        try {
+            String body = buildPasswordChangedEmail();
+
+            sendEmail(toEmail, MessageConstants.PASSWORD_CHANGED, body);
+
+            logger.info("event=email_send_success type=PASSWORD CHANGED recipientHash={}", recipientHash);
+
+        } catch (Exception ex) {
+            logger.error("event=email_send_failed type=PASSWORD CHANGED recipientHash={}", recipientHash, ex);
         }
     }
 
@@ -156,6 +178,20 @@ public class EmailServiceImpl implements EmailService {
                 Thanks,
                 Your Team
                 """.formatted(link);
+    }
+
+
+    private String buildPasswordChangedEmail() {
+
+        String body = """
+            Your password has been successfully changed.
+
+            Time: %s
+
+            If this was not you, please reset your password immediately.
+            """.formatted(LocalDateTime.now(ZoneOffset.UTC));
+
+        return body;
     }
 
 

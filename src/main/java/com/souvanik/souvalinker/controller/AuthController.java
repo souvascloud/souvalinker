@@ -10,10 +10,7 @@ package com.souvanik.souvalinker.controller;
 import com.souvanik.souvalinker.annotation.RateLimited;
 import com.souvanik.souvalinker.constants.MessageConstants;
 import com.souvanik.souvalinker.dto.payload.AuthPayload;
-import com.souvanik.souvalinker.dto.request.LoginRequest;
-import com.souvanik.souvalinker.dto.request.LogoutRequest;
-import com.souvanik.souvalinker.dto.request.RefreshRequest;
-import com.souvanik.souvalinker.dto.request.RegisterRequest;
+import com.souvanik.souvalinker.dto.request.*;
 import com.souvanik.souvalinker.dto.response.ApiResponse;
 import com.souvanik.souvalinker.service.AuthService;
 import jakarta.validation.Valid;
@@ -66,6 +63,16 @@ public class AuthController {
         return ResponseEntity.ok(new ApiResponse<>(true, MessageConstants.PASSWORD_RESET_EMAIL_SENT, null));
     }
 
+    @RateLimited(strategy = RESET_PASSWORD_IP)
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@RequestBody ResetPasswordRequest request) {
+
+        authService.resetPassword(request.token() , request.newPassword());
+
+        return ResponseEntity.ok(new ApiResponse<>(true, MessageConstants.PASSWORD_RESET_SUCCESS, null));
+    }
+
+    @RateLimited(strategy = REFRESH_TOKEN)
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<AuthPayload>> refresh(@RequestBody RefreshRequest request) {
 

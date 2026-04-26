@@ -1,6 +1,5 @@
 package com.souvanik.souvalinker.strategy;
 
-import com.souvanik.souvalinker.annotation.RateLimited;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
 
@@ -11,18 +10,17 @@ import org.springframework.stereotype.Component;
  * https://opensource.org/licenses/MIT
  */
 @Component
-public class IpRateLimitStrategy  implements RateLimitStrategy {
+public class RefreshTokenRateLimitStrategy implements RateLimitStrategy {
+
     @Override
     public String buildKey(HttpServletRequest request) {
 
-        String ip = request.getHeader("X-Forwarded-For");
+        Object token = request.getAttribute("refreshToken");
 
-        if (ip == null || ip.isEmpty()) {
-            ip = request.getRemoteAddr();
-        } else {
-            ip = ip.split(",")[0].trim();
+        if (token == null) {
+            return "unknown";
         }
 
-        return ip;
+        return token.toString();
     }
 }

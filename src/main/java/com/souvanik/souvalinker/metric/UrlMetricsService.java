@@ -9,15 +9,11 @@ package com.souvanik.souvalinker.metric;
 public interface UrlMetricsService {
     void incrementShortUrlCreated();
 
-    void incrementRedirectResolution(
-            String source
-    );
+    void incrementRedirectResolution(String source);
 
-    void incrementRateLimitRejection(
-            String endpoint
-    );
+    void incrementRateLimitRejection(String endpoint);
 
-    void recordRedirectLatency(
-            long millis
-    );
+    void recordRedirectLatency(long millis);
+
+    public void incrementRateLimitSuccess(String endpoint);
 }

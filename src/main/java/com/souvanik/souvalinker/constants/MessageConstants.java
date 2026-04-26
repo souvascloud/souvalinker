@@ -8,6 +8,7 @@ package com.souvanik.souvalinker.constants;
  */
 public final class MessageConstants {
     public static final String LOGOUT_SUCCESS = "Logout successfully!";
+    public static final String PASSWORD_CHANGED = "Password Changed";
 
     private MessageConstants() {}
 

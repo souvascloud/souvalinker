@@ -41,44 +41,60 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
 
+        //  Only handle controller methods
         if (!(handler instanceof HandlerMethod method)) {
             return true;
         }
 
-
+        //  Check annotation
         RateLimited rateLimited = method.getMethodAnnotation(RateLimited.class);
+        if (rateLimited == null) {
+            return true;
+        }
 
-
-        if (rateLimited == null) {return true;}
-
-
+        // Resolve type + policy
         RateLimitType type = rateLimited.strategy();
-
-
         RateLimitPolicy policy = policyResolver.resolve(type);
 
-        String key;
+        // Build key based on strategy
+        String rawKey;
 
-        if (type == RateLimitType.URL_CREATE_USER) {
-            key = userStrategy.buildKey(request);
-        } else {
-            key = ipStrategy.buildKey(request);
+        switch (type) {
+
+            //  IP-based endpoints
+            case REGISTER_IP,
+                 LOGIN_IP,
+                 FORGOT_PASSWORD_IP,RESET_PASSWORD_IP -> rawKey = ipStrategy.buildKey(request);
+
+            // Refresh token-based
+            case REFRESH_TOKEN -> {
+                Object tokenAttr = request.getAttribute("refreshToken");
+                rawKey = (tokenAttr != null) ? tokenAttr.toString() : "unknown";
+            }
+
+            default -> throw new IllegalArgumentException(
+                    "Unsupported rate limit type: " + type
+            );
         }
 
+        //  Redis key (namespaced)
+        String key = "ratelimit:" + type.name() + ":" + rawKey;
 
+        //  Call Redis limiter
         boolean allowed = rateLimiterService.allowRequest(
-                        key,
-                        policy.limit(),
-                        policy.window()
-                );
+                key,
+                policy.limit(),
+                policy.window()
+        );
 
+        // Handle rejection
         if (!allowed) {
-            metricsService.incrementRateLimitRejection(
-                    type.name()
-            );
-
+            metricsService.incrementRateLimitRejection(type.name());
             throw new RateLimitExceededException("Rate limit exceeded");
         }
+
+        //  Track success (optional but useful)
+        metricsService.incrementRateLimitSuccess(type.name());
 
         return true;
     }

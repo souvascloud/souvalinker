@@ -19,8 +19,10 @@ public class UserRateLimitStrategy implements RateLimitStrategy {
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
 
-        Long userId = Long.valueOf(auth.getName());
+        if (auth == null || !auth.isAuthenticated()) {
+            return "anonymous";
+        }
 
-        return "rate_limit:user:" + userId;
+        return auth.getName();
     }
 }

@@ -1,5 +1,7 @@
 package com.souvanik.souvalinker.service;
 
+import io.jsonwebtoken.Claims;
+
 import java.util.Date;
 
 /*
@@ -20,6 +22,7 @@ public interface TokenService {
 
     Date extractExpiration(String token);
 
+    Claims extractAllClaims(String token)
 
 
     String generateRefreshToken();

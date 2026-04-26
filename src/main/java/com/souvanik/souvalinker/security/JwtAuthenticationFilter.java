@@ -1,6 +1,9 @@
 package com.souvanik.souvalinker.security;
 
 import com.souvanik.souvalinker.service.TokenService;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,21 +49,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
 
-            if (tokenService.validateJwt(jwt) && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                Long userId = tokenService.extractUserId(jwt);
+            if (tokenService.isTokenValid(jwt) && SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                Claims claims = tokenService.extractAllClaims(jwt);
 
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                Long userId = Long.valueOf(claims.getSubject());
+
+
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(
+                                userId,
+                                null,
+                                Collections.emptyList()
+                        );
+
+                authentication.setDetails(
+                        new WebAuthenticationDetailsSource().buildDetails(request)
+                );
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
 
-                logger.info("JWT authentication successful userId={}", userId);
+                logger.debug("event=jwt_auth_success userId={}", userId);
             }
 
+        } catch (ExpiredJwtException ex) {
+            logger.warn("event=jwt_expired");
+            SecurityContextHolder.clearContext();
+
+        } catch (JwtException ex) {
+            logger.warn("event=jwt_invalid");
+            SecurityContextHolder.clearContext();
+
         } catch (Exception ex) {
-            logger.error("JWT authentication failed", ex);
+            logger.error("event=jwt_processing_error", ex);
             SecurityContextHolder.clearContext();
         }
 

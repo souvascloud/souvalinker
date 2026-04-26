@@ -9,6 +9,8 @@ import com.souvanik.souvalinker.entity.AuthToken;
 import com.souvanik.souvalinker.entity.TokenType;
 import com.souvanik.souvalinker.entity.User;
 import com.souvanik.souvalinker.entity.UserStatus;
+import com.souvanik.souvalinker.event.PasswordChangedEvent;
+import com.souvanik.souvalinker.event.PasswordResetEvent;
 import com.souvanik.souvalinker.event.UserRegisteredEvent;
 import com.souvanik.souvalinker.exception.BadRequestException;
 import com.souvanik.souvalinker.exception.ResourceNotFoundException;
@@ -221,53 +223,64 @@ public class AuthServiceImpl implements AuthService {
 
 
     @Override
+    @Transactional
     public void forgotPassword(String email) {
 
-        userRepository.findByEmail(email).ifPresent(user -> {
+        String normalizedEmail = email.trim().toLowerCase();
+        String emailHash = Integer.toHexString(normalizedEmail.hashCode());
 
-            String token = tokenService.generatePasswordResetToken();
+        userRepository.findByEmail(normalizedEmail).ifPresent(user -> {
+
+            String rawToken = tokenService.generatePasswordResetToken();
+            String tokenHash = tokenService.hashToken(rawToken);
 
             AuthToken authToken = new AuthToken();
             authToken.setUser(user);
-            authToken.setToken(token);
+            authToken.setToken(tokenHash);
             authToken.setType(TokenType.RESET);
             authToken.setUsed(false);
             authToken.setExpiryTime(
-                    LocalDateTime.now().plusMinutes(
-                            appProperties.auth().resetTokenExpiryMinutes()
-                    )
+                    LocalDateTime.now(ZoneOffset.UTC)
+                            .plusMinutes(appProperties.auth().resetTokenExpiryMinutes())
             );
 
             authTokenRepository.save(authToken);
 
-            emailService.sendPasswordResetEmail(user.getEmail(), token);
+            eventPublisher.publishEvent(new PasswordResetEvent(user.getEmail(), rawToken));
         });
 
-        logger.info("event=forgot_password_requested email={}", email);
+        logger.info("event=forgot_password_requested emailHash={}", emailHash);
     }
 
 
     @Override
+    @Transactional
     public void resetPassword(String token, String newPassword) {
 
-        AuthToken authToken = authTokenRepository.findByToken(token)
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid token"));
+        String tokenHash = tokenService.hashToken(token);
 
-        if (authToken.isExpired() || authToken.isUsed()) {
-            throw new BadRequestException("Token invalid or expired");
-        }
+        AuthToken authToken = authTokenRepository.findByToken(tokenHash)
+                .orElseThrow(() -> new BadRequestException("Invalid token"));
 
         if (authToken.getType() != TokenType.RESET) {
             throw new BadRequestException("Invalid token type");
         }
 
+        if (authToken.isUsed()) {
+            throw new BadRequestException("Token already used");
+        }
+
+        if (authToken.isExpired()) {
+            throw new BadRequestException("Token expired");
+        }
+
         User user = authToken.getUser();
+
         user.setPasswordHash(passwordEncoder.encode(newPassword));
 
         authToken.setUsed(true);
 
-        userRepository.save(user);
-        authTokenRepository.save(authToken);
+        eventPublisher.publishEvent(new PasswordChangedEvent(user.getEmail()));
 
         logger.info("event=password_reset_success userId={}", user.getId());
     }

@@ -19,19 +19,21 @@ public class RateLimitPolicyResolver {
 
         return switch (type) {
 
-            case LOGIN_IP ->
-                    new RateLimitPolicy(
-                            10,
-                            Duration.ofMinutes(1)
-                    );
+            case REGISTER_IP ->
+                    new RateLimitPolicy(5, Duration.ofMinutes(1));
 
-            case URL_CREATE_USER ->
-                    new RateLimitPolicy(
-                            100,
-                            Duration.ofDays(1)
-                    );
+            case LOGIN_IP, RESET_PASSWORD_IP ->
+                    new RateLimitPolicy(10, Duration.ofMinutes(1));
 
-            default -> throw new IllegalArgumentException("Unsupported policy");
+            case FORGOT_PASSWORD_IP ->
+                    new RateLimitPolicy(5, Duration.ofMinutes(10));
+
+            case REFRESH_TOKEN ->
+                    new RateLimitPolicy(20, Duration.ofMinutes(1));
+
+
+            default ->
+                    throw new IllegalArgumentException("Unsupported policy: " + type);
         };
     }
 }

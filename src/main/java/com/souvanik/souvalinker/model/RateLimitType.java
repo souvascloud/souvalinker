@@ -15,5 +15,9 @@ public enum RateLimitType {
 
     URL_CREATE_USER,
 
-    REDIRECT_IP
+    REDIRECT_IP ,
+
+    RESET_PASSWORD_IP,
+
+    REFRESH_TOKEN
 }

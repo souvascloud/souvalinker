@@ -1,4 +1,4 @@
-package com.souvanik.souvalinker;
+package com.souvanik.souvalinker.config;
 
 import com.souvanik.souvalinker.intercepter.RateLimitInterceptor;
 import lombok.RequiredArgsConstructor;

@@ -14,32 +14,43 @@ import java.util.concurrent.TimeUnit;
  */
 
 @Service
-@RequiredArgsConstructor
 public class UrlMetricsServiceImpl implements UrlMetricsService {
+
 
     private final MeterRegistry meterRegistry;
 
+    private final Timer redirectLatencyTimer;
+
+    public UrlMetricsServiceImpl(MeterRegistry meterRegistry) {
+        this.meterRegistry = meterRegistry;
+
+        this.redirectLatencyTimer = Timer.builder("app_redirect_resolution_latency")
+                .description("Time taken to resolve short URL")
+                .register(meterRegistry);
+    }
 
     @Override
     public void incrementShortUrlCreated() {
-        meterRegistry.counter("short_url_created_total").increment();
+        meterRegistry.counter("app_short_url_created_total").increment();
     }
-
 
     @Override
     public void incrementRedirectResolution(String source) {
-        meterRegistry.counter("redirect_resolution_total", "source", source).increment();
+        meterRegistry.counter("app_redirect_resolution_total", "source", source).increment();
     }
-
-
 
     @Override
     public void incrementRateLimitRejection(String endpoint) {
-        meterRegistry.counter("rate_limit_rejections_total", "endpoint", endpoint).increment();
+        meterRegistry.counter("app_rate_limit_rejections_total", "endpoint", endpoint).increment();
+    }
+
+    @Override
+    public void incrementRateLimitSuccess(String endpoint) {
+        meterRegistry.counter("app_rate_limit_success_total", "endpoint", endpoint).increment();
     }
 
     @Override
     public void recordRedirectLatency(long millis) {
-        Timer.builder("redirect_resolution_latency").register(meterRegistry).record(millis, TimeUnit.MILLISECONDS);
+        redirectLatencyTimer.record(millis, TimeUnit.MILLISECONDS);
     }
 }

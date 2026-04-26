@@ -1,5 +1,7 @@
 package com.souvanik.souvalinker.event.listener;
 
+import com.souvanik.souvalinker.event.PasswordChangedEvent;
+import com.souvanik.souvalinker.event.PasswordResetEvent;
 import com.souvanik.souvalinker.event.UserRegisteredEvent;
 import com.souvanik.souvalinker.service.EmailService;
 import com.souvanik.souvalinker.service.impl.AuthServiceImpl;
@@ -32,4 +34,25 @@ public class UserEventListener {
 
         emailService.sendVerificationEmail(event.email(), event.token());
     }
+
+    @Async("emailExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handlePasswordReset(PasswordResetEvent event) {
+
+        logger.info("event=password_reset_listener_triggered emailHash={}",
+                Integer.toHexString(event.email().hashCode()));
+
+        emailService.sendPasswordResetEmail(
+                event.email(),
+                event.token()
+        );
+    }
+
+    @Async("emailExecutor")
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handlePasswordChanged(PasswordChangedEvent event) {
+
+        emailService.sendPasswordChangedEmail(event.email());
+    }
+    
 }

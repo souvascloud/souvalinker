@@ -4,6 +4,7 @@ import com.souvanik.souvalinker.config.properties.AppProperties;
 import com.souvanik.souvalinker.service.TokenService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,97 +28,107 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class TokenServiceImpl implements TokenService {
+    private final AppProperties appProperties;
 
-        private final AppProperties appProperties;
+    private Key signingKey;
 
-        private Key getSigningKey() {
-            byte[] keyBytes = Base64.getDecoder().decode(appProperties.jwt().secret());
-            return Keys.hmacShaKeyFor(keyBytes);
+    //  Initialize signing key once (avoid repeated decoding)
+    @PostConstruct
+    public void init() {
+        byte[] keyBytes = Base64.getDecoder().decode(appProperties.jwt().secret());
+        this.signingKey = Keys.hmacShaKeyFor(keyBytes);
+    }
+
+
+    @Override
+    public String generateAccessToken(Long userId) {
+
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + appProperties.jwt().expirationMs());
+
+        return Jwts.builder()
+                .setSubject(String.valueOf(userId))
+                .setId(UUID.randomUUID().toString())
+                .setIssuedAt(now)
+                .setExpiration(expiry)
+                .signWith(signingKey, SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    @Override
+    public boolean isTokenValid(String token) {
+        try {
+            extractAllClaims(token); // single parsing
+            return true;
+        } catch (JwtException | IllegalArgumentException ex) {
+            return false;
         }
+    }
 
-        @Override
-        public String generateAccessToken(Long userId) {
+    @Override
+    public Long extractUserId(String token) {
+        return Long.valueOf(extractAllClaims(token).getSubject());
+    }
 
-            Date now = new Date();
-            Date expiry = new Date(now.getTime() + appProperties.jwt().expirationMs());
+    @Override
+    public String extractJti(String token) {
+        return extractAllClaims(token).getId();
+    }
 
-            return Jwts.builder()
-                    .setSubject(String.valueOf(userId))
-                    .setId(UUID.randomUUID().toString())
-                    .setIssuedAt(now)
-                    .setExpiration(expiry)
-                    .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                    .compact();
-        }
+    @Override
+    public Date extractExpiration(String token) {
+        return extractAllClaims(token).getExpiration();
+    }
 
-        @Override
-        public boolean isTokenValid(String token) {
-            try {
-                Jwts.parserBuilder()
-                        .setSigningKey(getSigningKey())
-                        .build()
-                        .parseClaimsJws(token);
-                return true;
-            } catch (JwtException | IllegalArgumentException ex) {
-                return false;
-            }
-        }
-
-        @Override
-        public Long extractUserId(String token) {
-            return Long.valueOf(extractAllClaims(token).getSubject());
-        }
-
-        @Override
-        public String extractJti(String token) {
-            return extractAllClaims(token).getId();
-        }
-
-        @Override
-        public Date extractExpiration(String token) {
-            return extractAllClaims(token).getExpiration();
-        }
-
-        private Claims extractAllClaims(String token) {
-            return Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
-        }
+    // 🔥 IMPORTANT: made public (used in filter)
+    @Override
+    public Claims extractAllClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(signingKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
 
 
-        @Override
-        public String generateRefreshToken() {
-            byte[] randomBytes = new byte[32];
-            new SecureRandom().nextBytes(randomBytes);
-            return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
-        }
 
-        @Override
-        public String generateVerificationToken() {
-            return UUID.randomUUID().toString();
-        }
+    @Override
+    public String generateRefreshToken() {
+        return generateSecureRandomToken(32);
+    }
 
-        @Override
-        public String generatePasswordResetToken() {
-            return UUID.randomUUID().toString();
-        }
+    @Override
+    public String generateVerificationToken() {
+        return UUID.randomUUID().toString();
+    }
 
+    @Override
+    public String generatePasswordResetToken() {
+        return UUID.randomUUID().toString();
+    }
+
+
+    private String generateSecureRandomToken(int byteLength) {
+        byte[] randomBytes = new byte[byteLength];
+        new SecureRandom().nextBytes(randomBytes);
+        return Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+    }
+
+
+    @Override
     public String hashToken(String token) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             byte[] hash = digest.digest(token.getBytes(StandardCharsets.UTF_8));
-
             return bytesToHex(hash);
 
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 algorithm not found", e);
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
     }
 
     private String bytesToHex(byte[] bytes) {
-        StringBuilder hex = new StringBuilder(2 * bytes.length);
+        StringBuilder hex = new StringBuilder(bytes.length * 2);
 
         for (byte b : bytes) {
             String hexChar = Integer.toHexString(0xff & b);
